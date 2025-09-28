@@ -2,6 +2,8 @@
 
 This project is a FastAPI-based backend designed to track and manage student data from LeetCode and GitHub. It provides a multi-tenant system where student information can be organized into separate tables, with corresponding data tables for storing fetched statistics. The application fetches data from external APIs, processes it, and stores it in a PostgreSQL database.
 
+Frontend Repo: https://github.com/0xarchit/Leetcode-Github-Tracker-Frontend
+
 ## Features
 
 - **Multi-tenant**: Create and manage separate tables for different groups of students.
