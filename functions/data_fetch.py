@@ -56,7 +56,6 @@ def build_jsonl(engine: Engine, src_name: str, dst_name: Optional[str] = None) -
                 dst.c.lc_max_streak,
             dst.c.lc_badges,
             dst.c.lc_language,
-            # new history fields
             dst.c.gh_contribution_history,
             dst.c.lc_submission_history,
         )
@@ -108,9 +107,9 @@ def build_json_list(engine: Engine, src_name: str, dst_name: Optional[str] = Non
                 dst.c.lc_max_streak,
             dst.c.lc_badges,
             dst.c.lc_language,
-            # new history fields
             dst.c.gh_contribution_history,
             dst.c.lc_submission_history,
+            dst.c.lc_progress_history,
         )
         .select_from(src.outerjoin(dst, src.c.roll_number == dst.c.rollnumber))
         .order_by(src.c.roll_number)
@@ -135,6 +134,8 @@ def build_json_list(engine: Engine, src_name: str, dst_name: Optional[str] = Non
             # normalize history fields to JSON objects if stored as strings
             item["gh_contribution_history"] = _to_json_obj(item.get("gh_contribution_history"))
             item["lc_submission_history"] = _to_json_obj(item.get("lc_submission_history"))
+            item["lc_progress_history"] = _to_json_obj(item.get("lc_progress_history"))
+            item["lc_progress_history"] = _to_json_obj(item.get("lc_progress_history"))
             lcd = (item.get("last_commit_date") or "").strip()
             if lcd:
                 try:

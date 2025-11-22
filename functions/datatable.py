@@ -16,7 +16,7 @@ def data_table(table_name: str) -> Table:
         Column("git_original_repo", Integer),
         Column("git_authored_repo", Integer),
         Column("last_commit_date", String(64)),
-        Column("git_badges", String(1024)),  # comma-separated list
+        Column("git_badges", String(1024)),
         Column("lc_total_solved", Integer),
         Column("lc_easy", Integer),
         Column("lc_medium", Integer),
@@ -26,11 +26,11 @@ def data_table(table_name: str) -> Table:
     Column("lc_lastacceptedsubmission", String(64)),
     Column("lc_cur_streak", Integer),
     Column("lc_max_streak", Integer),
-        Column("lc_badges", String(1024)),  # comma-separated list
-        Column("lc_language", String(1024)),  # comma-separated languages
-        # New universal history columns (JSON maps of YYYY-MM-DD -> count)
+        Column("lc_badges", String(1024)),
+        Column("lc_language", String(1024)),
         Column("gh_contribution_history", JSONB),
         Column("lc_submission_history", JSONB),
+        Column("lc_progress_history", JSONB),
         extend_existing=True,
     )
 

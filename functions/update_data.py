@@ -242,6 +242,8 @@ def compute_stats(
         # universal histories as JSON strings for portability
         "lc_submission_history": (None if lc_history is None else __import__("json").dumps(lc_history, separators=(",", ":"))),
         "gh_contribution_history": (None if gh_history is None else __import__("json").dumps(gh_history, separators=(",", ":"))),
+        # Store total_solved for progress tracking (to be appended with timestamp later)
+        "_lc_total_for_progress": totalSolved,
     }
 
 
@@ -358,12 +360,29 @@ def update_all_students(engine: Engine, source_table: str, target_table: str) ->
             else:
                 to_remove_notif.append(roll)
 
-    # Batch upsert into target table
     def _chunks(seq: List[Any], size: int):
         for i in range(0, len(seq), size):
             yield seq[i:i + size]
 
     with engine.begin() as conn:
+        existing_progress: Dict[int, List[Dict[str, Any]]] = {}
+        if results:
+            roll_numbers = [roll for roll, _, _ in results]
+            fetch_stmt = select(dst.c.rollnumber, dst.c.lc_progress_history).where(
+                dst.c.rollnumber.in_(roll_numbers)
+            )
+            for row in conn.execute(fetch_stmt):
+                roll_num = int(row.rollnumber)
+                history = row.lc_progress_history
+                # Parse if stored as string
+                if isinstance(history, str):
+                    try:
+                        import json as _json
+                        history = _json.loads(history)
+                    except Exception:
+                        history = []
+                existing_progress[roll_num] = history if isinstance(history, list) else []
+
         # Snapshot destination column names to filter payloads (backward compatible)
         dst_cols = {c.name for c in dst.columns}
         # Helper to execute one micro batch with retries
@@ -397,13 +416,36 @@ def update_all_students(engine: Engine, source_table: str, target_table: str) ->
         # Outer batches subdivided to micro-batches to limit single statement size
         for outer in _chunks(results, batch_size):
             for micro in _chunks(outer, micro_batch_size):
-                raw = [{"rollnumber": roll, **stats} for (roll, stats, _name) in micro]
-                # Filter to existing columns only
+                raw = []
+                for roll, stats, _name in micro:
+                    row_data = {"rollnumber": roll, **stats}
+                    
+                    # Handle progress history: append new entry with timestamp and count
+                    total_solved = stats.pop("_lc_total_for_progress", None)
+                    if total_solved is not None:
+                        # Get existing history for this roll number
+                        history = existing_progress.get(roll, [])
+                        
+                        # Create new entry with current timestamp in IST (UTC+05:30)
+                        import json as _json
+                        from datetime import timedelta
+                        IST = timezone(timedelta(hours=5, minutes=30))
+                        ist_time = datetime.now(tz=timezone.utc).astimezone(IST)
+                        new_entry = {
+                            "timestamp": ist_time.isoformat(),
+                            "count": total_solved
+                        }
+                        
+                        history.append(new_entry)
+                        history = history[-200:]
+                        
+                        row_data["lc_progress_history"] = _json.dumps(history, separators=(",", ":"))
+                    
+                    raw.append(row_data)
+                
                 payload = [{k: v for k, v in row.items() if k in dst_cols} for row in raw]
                 _execute_payload(payload)
 
-        # Apply notifications in batches
-        # 1) remove stale reasons for non-stale users
         reason_text = "No LC submission in last 3 days"
         for roll_chunk in _chunks(to_remove_notif, max(1, batch_size)):
             try:
